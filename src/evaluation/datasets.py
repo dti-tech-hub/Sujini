@@ -11,6 +11,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 BENIGN = "benign"
+# Fixed anchor for reproducible synthetic data. The hour-of-day feature and
+# event timestamps must not depend on when the evaluation happens to be run.
+DATASET_ANCHOR = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 ATTACK_CATEGORIES = [
     "sql_injection",
     "command_injection",
@@ -51,7 +54,7 @@ def _username(rng: random.Random) -> str:
 def generate_labeled_dataset(n_samples: int = 4200, seed: int = 42) -> list[dict[str, Any]]:
     """Generate labelled HTTP event records for supervised/unsupervised ML."""
     rng = random.Random(seed)
-    now = datetime.now(tz=timezone.utc)
+    now = DATASET_ANCHOR
     records: list[dict[str, Any]] = []
     # Roughly 70% benign, 30% attacks, with coverage of each attack family.
     weights = [
@@ -201,7 +204,7 @@ def _event(
 def generate_scenarios(per_class: int = 10, seed: int = 42) -> list[Scenario]:
     """Build labelled multi-event incident scenarios across attack families."""
     rng = random.Random(seed)
-    now = datetime.now(tz=timezone.utc).replace(microsecond=0) - timedelta(minutes=20)
+    now = DATASET_ANCHOR - timedelta(minutes=20)
     scenarios: list[Scenario] = []
     categories = [
         ("brute_force", True, ["T1110"], "SIMULATE_BLOCK_IP"),

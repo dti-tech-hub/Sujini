@@ -216,7 +216,9 @@ def train_all(
         max_samples="auto",
         contamination="auto",
         random_state=seed,
-        n_jobs=-1,
+        # n_jobs=1 keeps threshold selection bit-for-bit reproducible across
+        # runs; parallel tree construction can change tie ordering.
+        n_jobs=1,
     )
     isolation.fit(X[fit_idx])
     validation_decisions = isolation.decision_function(X[validation_idx])
