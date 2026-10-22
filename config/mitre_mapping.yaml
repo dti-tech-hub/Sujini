@@ -1,0 +1,67 @@
+# MITRE ATT&CK technique mapping.
+# confidence is a heuristic derived from mapping base confidence plus the
+# amount of corroborating evidence; it is not a statistical probability.
+# Mapping status: confidence >= confirmed_threshold -> "confirmed",
+# otherwise "candidate". Uncertain mappings are never shown as confirmed.
+confirmed_threshold: 0.75
+
+techniques:
+  - technique_id: T1110
+    technique_name: "Brute Force"
+    subtechnique: "T1110.001 - Password Guessing"
+    tactics: ["Credential Access"]
+    behaviors: ["brute_force", "repeated_failed_login"]
+    base_confidence: 0.88
+    rationale: "Repeated authentication failures for the same principal or source."
+    url: "https://attack.mitre.org/techniques/T1110/"
+
+  - technique_id: T1078
+    technique_name: "Valid Accounts"
+    tactics: ["Defense Evasion", "Persistence", "Privilege Escalation", "Initial Access"]
+    behaviors: ["account_compromise", "successful_login_after_failures"]
+    base_confidence: 0.90
+    rationale: "A successful authentication followed a cluster of failures, consistent with use of compromised valid credentials."
+    url: "https://attack.mitre.org/techniques/T1078/"
+
+  - technique_id: T1190
+    technique_name: "Exploit Public-Facing Application"
+    tactics: ["Initial Access"]
+    behaviors: ["sql_injection", "command_injection", "path_traversal"]
+    base_confidence: 0.82
+    rationale: "Injection or traversal indicators target an internet-facing web endpoint."
+    url: "https://attack.mitre.org/techniques/T1190/"
+
+  - technique_id: T1059
+    technique_name: "Command and Scripting Interpreter"
+    subtechnique: "T1059.004 - Unix Shell"
+    tactics: ["Execution"]
+    behaviors: ["command_injection"]
+    base_confidence: 0.78
+    rationale: "Observed request contains shell metacharacters and operating-system command tokens."
+    url: "https://attack.mitre.org/techniques/T1059/004/"
+
+  - technique_id: T1595.002
+    technique_name: "Vulnerability Scanning"
+    subtechnique: "T1595.002 - Vulnerability Scanning"
+    tactics: ["Reconnaissance"]
+    behaviors: ["recon_scanning", "suspicious_user_agent"]
+    base_confidence: 0.68
+    rationale: "Automated scanner signatures or sensitive-path enumeration were observed."
+    url: "https://attack.mitre.org/techniques/T1595/002/"
+
+  - technique_id: T1498
+    technique_name: "Network Denial of Service"
+    tactics: ["Impact"]
+    behaviors: ["abnormal_traffic"]
+    base_confidence: 0.38
+    rationale: "Request volume is anomalous; this is a weak candidate because volume alone does not prove denial-of-service intent."
+    url: "https://attack.mitre.org/techniques/T1498/"
+
+  - technique_id: T1505.003
+    technique_name: "Web Shell"
+    subtechnique: "T1505.003 - Web Shell"
+    tactics: ["Persistence"]
+    behaviors: ["webshell"]
+    base_confidence: 0.80
+    rationale: "Behavior consistent with web-shell deployment was observed."
+    url: "https://attack.mitre.org/techniques/T1505/003/"

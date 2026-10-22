@@ -1,0 +1,106 @@
+app:
+  name: "AI Agent-Based Automated Cybersecurity Incident Response System"
+  version: "1.0.0"
+  environment: "development"
+  demo_mode: true
+  host: "127.0.0.1"
+  port: 8000
+
+database:
+  # SQLite is the zero-setup default. Any SQLAlchemy URL can be supplied via
+  # DATABASE_URL, e.g. postgresql+psycopg://user:pass@host/db
+  url: "sqlite:///data/soc.db"
+  echo: false
+
+auth:
+  access_token_minutes: 120
+  algorithm: "HS256"
+  min_password_length: 12
+
+api:
+  title: "AI Cyber Incident Response API"
+  cors_origins:
+    - "http://localhost:8501"
+    - "http://127.0.0.1:8501"
+  rate_limit_requests: 120
+  rate_limit_window_seconds: 60
+  login_rate_limit_requests: 10
+  login_rate_limit_window_seconds: 60
+  max_events_per_batch: 500
+
+detection:
+  enabled: true
+  auto_investigate: false
+  correlation_window_minutes: 10
+  duplicate_window_minutes: 60
+  failed_login_threshold: 5
+  failed_login_window_minutes: 10
+  account_compromise_min_failures: 3
+  request_rate_threshold: 30
+  request_rate_window_minutes: 1
+  server_error_threshold: 10
+  server_error_window_minutes: 5
+  known_malicious_ips:
+    - "198.51.100.77"
+    - "203.0.113.66"
+  enable_ml_anomaly: true
+  ml_anomaly_threshold: -0.05
+  max_recent_events: 500
+
+investigation:
+  correlation_window_minutes: 10
+  max_events: 200
+  max_input_chars: 6000
+  min_confidence: 0.30
+
+threat_intelligence:
+  enabled: true
+  mock_fallback: true
+  cache_ttl_minutes: 60
+  timeout_seconds: 8
+  providers:
+    - "virustotal"
+    - "abuseipdb"
+  mock_provider_name: "mock"
+  # Reserved documentation ranges are labelled synthetic rather than queried
+  # from live providers.
+  skip_reserved_ranges: true
+
+llm:
+  enabled: false
+  provider: "deterministic"
+  base_url: "https://api.openai.com/v1"
+  model: "gpt-4o-mini"
+  timeout_seconds: 25
+  max_tokens: 900
+  temperature: 0.0
+
+response:
+  simulation_mode: true
+  require_approval_for_high: true
+  require_approval_for_critical: true
+  require_approval_for_medium: false
+  auto_execute_low: true
+  auto_execute_medium_safe_actions: true
+  notification_channel: "audit_log"
+  max_actions_per_incident: 8
+
+evaluation:
+  random_seed: 42
+  synthetic_samples: 4200
+  scenarios_per_class: 10
+  test_size: 0.30
+  ml_models:
+    - "random_forest"
+    - "logistic_regression"
+    - "isolation_forest"
+  cv_folds: 0
+
+logging:
+  level: "INFO"
+  json_logs: true
+  file: "results/logs/app.jsonl"
+
+demo:
+  scenario: "brute_force_account_compromise"
+  leave_awaiting_approval: false

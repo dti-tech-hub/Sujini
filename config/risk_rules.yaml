@@ -1,0 +1,53 @@
+# Transparent, project-defined risk model. These are engineering parameters,
+# not universal cybersecurity standards.
+thresholds:
+  low_max: 24
+  medium_max: 49
+  high_max: 74
+
+weights:
+  severity: 0.22
+  confidence: 0.13
+  asset_criticality: 0.13
+  threat_intel: 0.16
+  event_volume: 0.08
+  attack_impact: 0.23
+  recurrence: 0.05
+
+severity_scores:
+  LOW: 0.25
+  MEDIUM: 0.50
+  HIGH: 0.75
+  CRITICAL: 1.00
+
+impact_weights:
+  account_compromise: 1.00
+  command_injection: 0.95
+  sql_injection: 0.90
+  path_traversal: 0.75
+  brute_force: 0.65
+  malicious_ip: 0.60
+  abnormal_traffic: 0.50
+  suspicious_activity: 0.35
+  benign_or_unknown: 0.20
+
+# Asset criticality is assigned by endpoint prefix. Highest prefix wins.
+asset_criticality:
+  "/admin": 1.00
+  "/api/admin": 1.00
+  "/login": 0.80
+  "/api/auth": 0.80
+  "/api": 0.60
+  "/": 0.40
+
+threat_intel_risk:
+  malicious: 1.00
+  suspicious: 0.60
+  unknown: 0.30
+  clean: 0.10
+  private: 0.20
+  not_configured: 0.30
+
+event_volume_cap: 20
+recurrence_window_days: 30
+recurrence_cap: 5

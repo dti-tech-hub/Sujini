@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+.env
+env/
+
+# Runtime data (generated)
+data/soc.db
+data/soc.db-*
+data/demo.db
+data/demo.db-*
+data/demo_credentials.json
+data/credentials.json
+data/.secret_key
+models/*.joblib
+models/*.pkl
+
+# Generated results (evaluation is reproducible)
+results/figures/*.png
+results/metrics/*.csv
+results/metrics/*.json
+results/reports/*.md
+results/logs/*.log
+!results/figures/.gitkeep
+!results/metrics/.gitkeep
+!results/reports/.gitkeep
+!results/logs/.gitkeep
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Streamlit
+.streamlit/secrets.toml

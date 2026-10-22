@@ -1,0 +1,95 @@
+# Detection rule configuration. Patterns are passive indicators only:
+# the system never executes or replays a captured payload.
+rules:
+  - id: SQLI-001
+    name: "SQL injection indicator"
+    category: sql_injection
+    severity: HIGH
+    fields: [endpoint, message, request_body]
+    patterns:
+      - '(?i)\bunion\b[\s\S]{0,40}\bselect\b'
+      - '(?i)\b(or|and)\b\s+[''"]?\d+[''"]?\s*=\s*[''"]?\d+'
+      - '(?i)\b(sleep|benchmark|pg_sleep)\s*\('
+      - '(?i)\binformation_schema\b'
+      - '(?i)\bxp_cmdshell\b'
+      - '(?i)[''"]\s*or\s*[''"]?\w+[''"]?\s*=\s*[''"]?\w+'
+      - '(?i)\bselect\b[\s\S]{0,50}\bfrom\b[\s\S]{0,30}\bwhere\b'
+    description: "Request contains SQL meta-characters or time-based/union injection indicators."
+    mitre: [T1190]
+
+  - id: CMDI-001
+    name: "Command injection indicator"
+    category: command_injection
+    severity: CRITICAL
+    fields: [endpoint, message, request_body]
+    patterns:
+      - '(?i)(;|&&|\|\||\|)\s*(cat|whoami|id|uname|curl|wget|nc|netcat|bash|sh|powershell|cmd\.exe|python|perl)\b'
+      - '(?i)\$\((cat|whoami|id|uname|curl|wget|bash|sh|nc|powershell)\b'
+      - '(?i)(%3b|%7c|%26%26)\s*(cat|whoami|id|curl|wget|bash|sh|powershell)\b'
+      - '(?i)`\s*(cat|whoami|id|curl|wget|nc)\b'
+    description: "Shell metacharacters combined with operating-system commands."
+    mitre: [T1059, T1190]
+
+  - id: TRAV-001
+    name: "Path traversal indicator"
+    category: path_traversal
+    severity: HIGH
+    fields: [endpoint, message]
+    patterns:
+      - '(\.\./){1,}'
+      - '(\.\.\\){1,}'
+      - '(?i)%2e%2e(%2f|%5c)'
+      - '(?i)(/etc/passwd|/etc/shadow|windows/win\.ini|windows\\\\win\.ini|boot\.ini)'
+    description: "Directory traversal sequences or known sensitive file targets."
+    mitre: [T1190]
+
+  - id: RECON-001
+    name: "Sensitive path reconnaissance"
+    category: recon_scanning
+    severity: MEDIUM
+    fields: [endpoint]
+    patterns:
+      - '(?i)/(\.env|\.git/config|\.aws/credentials|wp-admin|phpmyadmin|server-status|actuator/env|admin/config)'
+      - '(?i)/(backup|db|dump)\.(sql|zip|tar|gz)$'
+    description: "Probes for credentials, source-control metadata, or administrative interfaces."
+    mitre: [T1595.002]
+
+  - id: UA-001
+    name: "Automated attack tool user agent"
+    category: suspicious_user_agent
+    severity: MEDIUM
+    fields: [user_agent]
+    patterns:
+      - '(?i)(sqlmap|nikto|nuclei|nmap|masscan|hydra|acunetix|nessus|dirbuster|gobuster|wpscan|metasploit|zgrab)'
+    description: "User-Agent identifies a known scanning or exploitation tool."
+    mitre: [T1595.002]
+
+  - id: PROMPT-001
+    name: "Prompt-injection attempt in untrusted log data"
+    category: prompt_injection_attempt
+    severity: MEDIUM
+    fields: [message, user_agent, request_body]
+    patterns:
+      - '(?i)ignore (all |the )?(previous|prior|above) instructions'
+      - '(?i)(system prompt|developer message|jailbreak|you are now|act as)'
+      - '(?i)(execute|run)\s+(this\s+)?(shell\s+)?command'
+      - '(?i)(disregard|forget)\s+(your|all)\s+(instructions|rules)'
+    description: "Log text attempts to manipulate the AI investigation agent. Treated as data, never as instructions."
+    mitre: []
+
+behavioral_rules:
+  repeated_failed_login:
+    id: AUTH-001
+    enabled: true
+  account_compromise:
+    id: AUTH-002
+    enabled: true
+  abnormal_request_rate:
+    id: RATE-001
+    enabled: true
+  server_error_burst:
+    id: HTTP-001
+    enabled: true
+  known_malicious_ip:
+    id: IP-001
+    enabled: true
