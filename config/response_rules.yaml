@@ -41,6 +41,7 @@ category_additions:
   sql_injection: [SIMULATE_BLOCK_IP]
   command_injection: [SIMULATE_QUARANTINE, SIMULATE_BLOCK_IP]
   path_traversal: [SIMULATE_BLOCK_IP]
+  unauthorized_access: [SIMULATE_BLOCK_IP]
   malicious_ip: [SIMULATE_BLOCK_IP]
   abnormal_traffic: [SIMULATE_BLOCK_IP]
   recon_scanning: [SIMULATE_BLOCK_IP]
@@ -54,10 +55,14 @@ categories:
     description: "Throttle and block the attacking source, then verify no successful authentication followed."
   sql_injection:
     description: "Block the source and preserve the request as evidence for web-application review."
+  xss:
+    description: "Block the source, preserve the payload and review output encoding on the affected endpoint."
   command_injection:
     description: "Quarantine the targeted workload and block the source; inspect server logs out-of-band."
   path_traversal:
     description: "Block the source and verify that no sensitive file was served."
+  unauthorized_access:
+    description: "Block the source of repeated denied requests and review access-control coverage."
   malicious_ip:
     description: "Block the reputation-listed source and review its full request history."
   abnormal_traffic:

@@ -39,6 +39,21 @@ _ALIASES = {
 
 _SEVERITIES = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"}
 
+DEFAULT_AUTH_ENDPOINT_TOKENS = (
+    "/login", "/signin", "/sign-in", "/sign_in", "/auth", "/session",
+    "/token", "/oauth", "/mfa", "/password", "/sso",
+)
+
+
+def is_auth_endpoint(endpoint: str | None, tokens: tuple[str, ...] | None = None) -> bool:
+    """Return True when the path belongs to an authentication flow.
+
+    Authorization failures outside these paths are access-control events, not
+    failed logins, and must not inflate brute-force counters.
+    """
+    path = (endpoint or "").lower()
+    return any(token in path for token in (tokens or DEFAULT_AUTH_ENDPOINT_TOKENS))
+
 
 def _first(payload: dict[str, Any], keys: tuple[str, ...], default: Any = None) -> Any:
     for key in keys:
@@ -105,6 +120,7 @@ def infer_severity(event_type: str, status_code: int | None) -> str:
         "forbidden_access": "MEDIUM",
         "server_error": "LOW",
         "sql_injection": "HIGH",
+        "xss": "HIGH",
         "command_injection": "CRITICAL",
         "path_traversal": "HIGH",
         "brute_force": "HIGH",

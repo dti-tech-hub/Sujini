@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from src.database.models import Alert, SecurityEvent
+from src.detection.normalization import is_auth_endpoint
 from src.utils.helpers import ensure_utc, iso
 
 
@@ -60,11 +61,14 @@ def correlate(events: list[SecurityEvent], alerts: list[Alert]) -> CorrelationRe
     alert_types = dict(Counter(alert.alert_type for alert in alerts))
     first = ensure_utc(ordered[0].timestamp)
     last = ensure_utc(ordered[-1].timestamp)
-    failed = sum(1 for event in ordered if event.event_type == "failed_login" or event.status_code == 401)
+    failed = sum(
+        1 for event in ordered
+        if event.event_type == "failed_login" or (event.status_code == 401 and is_auth_endpoint(event.endpoint))
+    )
     successful = [
         event for event in ordered
         if event.event_type == "successful_login" or (
-            event.status_code in {200, 302} and "/login" in (event.endpoint or "").lower()
+            event.status_code in {200, 302} and is_auth_endpoint(event.endpoint)
         )
     ]
     success_after_failures = bool(successful) and failed >= 3

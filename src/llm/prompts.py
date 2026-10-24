@@ -32,8 +32,9 @@ OUTPUT_SCHEMA = {
 }
 
 ALLOWED_CATEGORIES = [
-    "brute_force", "account_compromise", "sql_injection", "command_injection",
-    "path_traversal", "malicious_ip", "abnormal_traffic", "recon_scanning",
+    "brute_force", "account_compromise", "sql_injection", "xss",
+    "command_injection", "path_traversal", "unauthorized_access",
+    "malicious_ip", "abnormal_traffic", "recon_scanning",
     "suspicious_user_agent", "prompt_injection_attempt", "suspicious_activity",
     "benign_or_unknown",
 ]

@@ -6,20 +6,36 @@ from fastapi import APIRouter, Depends, Request
 from src.api.deps import get_request_id, get_service
 from src.database.models import User
 from src.security.authentication import require_roles
-from src.services.demo_scenarios import brute_force_compromise_scenario
+from src.services.demo_scenarios import DEMO_SCENARIO_DESCRIPTIONS, DEMO_SCENARIOS, get_demo_scenario
 from src.services.soc_service import SocService
 
 router = APIRouter(prefix="/api/demo", tags=["demo"])
 
 
+@router.get("/scenarios")
+def list_demo_scenarios(
+    user: User = Depends(require_roles("admin")),
+) -> dict:
+    return {
+        "scenarios": [
+            {
+                "name": name,
+                "description": DEMO_SCENARIO_DESCRIPTIONS.get(name, ""),
+            }
+            for name in sorted(DEMO_SCENARIOS)
+        ]
+    }
+
+
 @router.post("/scenario")
 def run_demo_scenario(
     request: Request,
+    scenario_name: str = "brute_force_account_compromise",
     auto_investigate: bool = True,
     service: SocService = Depends(get_service),
     user: User = Depends(require_roles("admin")),
 ) -> dict:
-    scenario = brute_force_compromise_scenario()
+    scenario = get_demo_scenario(scenario_name)
     batch = service.ingest_batch(
         scenario["events"],
         actor=user.username,

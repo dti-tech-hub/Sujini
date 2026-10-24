@@ -40,8 +40,10 @@ CATEGORY_LABELS = [
     "brute_force",
     "account_compromise",
     "sql_injection",
+    "xss",
     "command_injection",
     "path_traversal",
+    "unauthorized_access",
     "malicious_ip",
     "abnormal_traffic",
 ]

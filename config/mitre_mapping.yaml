@@ -40,6 +40,15 @@ techniques:
     rationale: "Observed request contains shell metacharacters and operating-system command tokens."
     url: "https://attack.mitre.org/techniques/T1059/004/"
 
+  - technique_id: T1059.007
+    technique_name: "Command and Scripting Interpreter"
+    subtechnique: "T1059.007 - JavaScript"
+    tactics: ["Execution"]
+    behaviors: ["xss"]
+    base_confidence: 0.55
+    rationale: "Request contains script tags, event handlers, or javascript: URL indicators consistent with client-side script injection; delivery is not proof of execution."
+    url: "https://attack.mitre.org/techniques/T1059/007/"
+
   - technique_id: T1595.002
     technique_name: "Vulnerability Scanning"
     subtechnique: "T1595.002 - Vulnerability Scanning"

@@ -210,8 +210,10 @@ def generate_scenarios(per_class: int = 10, seed: int = 42) -> list[Scenario]:
         ("brute_force", True, ["T1110"], "SIMULATE_BLOCK_IP"),
         ("account_compromise", True, ["T1110", "T1078", "T1190"], "SIMULATE_DISABLE_SESSION"),
         ("sql_injection", True, ["T1190"], "SIMULATE_BLOCK_IP"),
+        ("xss", True, ["T1059.007"], "SIMULATE_BLOCK_IP"),
         ("command_injection", True, ["T1059", "T1190"], "SIMULATE_QUARANTINE"),
         ("path_traversal", True, ["T1190"], "SIMULATE_BLOCK_IP"),
+        ("unauthorized_access", True, [], "SIMULATE_BLOCK_IP"),
         ("malicious_ip", True, [], "SIMULATE_BLOCK_IP"),
         ("abnormal_traffic", True, [], "SIMULATE_NOTIFY_ADMIN"),
         ("benign", False, [], None),
@@ -258,6 +260,25 @@ def generate_scenarios(per_class: int = 10, seed: int = 42) -> list[Scenario]:
                     message="product search",
                 ))
                 events.append(_event(base, 2, source_ip, destination="/products", message="product list"))
+            elif category == "xss":
+                events.append(_event(
+                    base, 0, source_ip,
+                    destination="/search?q=%3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E",
+                    message="search query processed",
+                ))
+                events.append(_event(base, 2, source_ip, destination="/products", message="product list"))
+            elif category == "unauthorized_access":
+                for offset, destination in enumerate((
+                    "/admin/users",
+                    "/admin/settings",
+                    "/admin/roles",
+                    "/api/admin/audit",
+                )):
+                    events.append(_event(
+                        base, offset * 2, source_ip, destination=destination,
+                        status_code=403, event_type="unauthorized_access",
+                        message="access denied by authorization policy",
+                    ))
             elif category == "command_injection":
                 events.append(_event(
                     base, 0, source_ip, destination="/api/ping", method="POST", status_code=500,

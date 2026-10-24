@@ -19,7 +19,9 @@ CATEGORY_PRECEDENCE = [
     "command_injection",
     "account_compromise",
     "sql_injection",
+    "xss",
     "path_traversal",
+    "unauthorized_access",
     "brute_force",
     "abnormal_traffic",
     "malicious_ip",
@@ -33,7 +35,9 @@ BASE_CONFIDENCE = {
     "command_injection": 0.92,
     "account_compromise": 0.88,
     "sql_injection": 0.90,
+    "xss": 0.86,
     "path_traversal": 0.85,
+    "unauthorized_access": 0.72,
     "brute_force": 0.88,
     "abnormal_traffic": 0.62,
     "malicious_ip": 0.68,
@@ -49,7 +53,9 @@ SEVERITY_BY_CATEGORY = {
     "command_injection": "CRITICAL",
     "account_compromise": "CRITICAL",
     "sql_injection": "HIGH",
+    "xss": "HIGH",
     "path_traversal": "HIGH",
+    "unauthorized_access": "HIGH",
     "brute_force": "HIGH",
     "abnormal_traffic": "MEDIUM",
     "malicious_ip": "HIGH",
@@ -76,6 +82,16 @@ NEXT_STEPS = {
         "Inspect the targeted endpoint and server responses for signs of successful injection.",
         "Review application parameterization and WAF logs for the request.",
         "Preserve the full request as evidence and notify the application owner.",
+    ],
+    "xss": [
+        "Inspect the targeted endpoint for reflected or stored script content in responses.",
+        "Check whether the payload was rendered to other users and review Content-Security-Policy coverage.",
+        "Preserve the request as evidence and correct output encoding on the affected endpoint.",
+    ],
+    "unauthorized_access": [
+        "Confirm whether the denied requests came from an authorized user or an expired session.",
+        "Review the targeted endpoints' access-control rules and server logs for any successful access.",
+        "Preserve the request evidence and rotate session tokens if credential misuse is suspected.",
     ],
     "command_injection": [
         "Inspect server process and command logs for execution traces.",
@@ -215,8 +231,10 @@ class InvestigationAgent:
         )
         if correlation.success_after_failures:
             summary += "The timeline shows repeated authentication failures followed by a successful login. "
-        if any(alert.alert_type in {"sql_injection", "command_injection", "path_traversal"} for alert in alerts):
-            summary += "One or more requests contain injection/traversal indicators; they were analyzed passively and not executed. "
+        if any(alert.alert_type in {"sql_injection", "command_injection", "path_traversal", "xss"} for alert in alerts):
+            summary += "One or more requests contain injection, traversal, or script indicators; they were analyzed passively and not executed. "
+        if any(alert.alert_type == "unauthorized_access" for alert in alerts):
+            summary += "The timeline contains denied requests to access-controlled resources; no unauthorized action is known to have succeeded. "
         if prompt_injection_flags:
             summary += "Instruction-like text in the logs was treated as untrusted data. "
         summary += "No system action has been executed at this stage."

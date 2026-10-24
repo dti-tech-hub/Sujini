@@ -23,14 +23,20 @@ def test_synthetic_dataset_labels_are_separate_from_provenance():
 
 def test_scenario_generation_has_expected_counts_and_mitre_ground_truth():
     scenarios = generate_scenarios(per_class=3, seed=11)
-    assert len(scenarios) == 24
+    assert len(scenarios) == 30
     attacks = [item for item in scenarios if item.is_attack]
     benign = [item for item in scenarios if not item.is_attack]
-    assert len(attacks) == 21
+    assert len(attacks) == 27
     assert len(benign) == 3
     compromise = next(item for item in scenarios if item.category == "account_compromise")
     assert compromise.expected_mitre == ["T1110", "T1078", "T1190"]
     assert any("/admin/users" in (event.get("destination") or "") for event in compromise.events)
+    xss = next(item for item in scenarios if item.category == "xss")
+    assert xss.expected_mitre == ["T1059.007"]
+    assert any("script" in (event.get("destination") or "") for event in xss.events)
+    access = next(item for item in scenarios if item.category == "unauthorized_access")
+    assert access.expected_mitre == []
+    assert all(event["status_code"] == 403 for event in access.events)
 
 
 def test_binary_detection_metrics_hand_computed():

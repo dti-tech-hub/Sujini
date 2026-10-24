@@ -43,6 +43,21 @@ rules:
     description: "Directory traversal sequences or known sensitive file targets."
     mitre: [T1190]
 
+  - id: XSS-001
+    name: "Cross-site scripting indicator"
+    category: xss
+    severity: HIGH
+    fields: [endpoint, message, request_body]
+    patterns:
+      - '(?i)<\s*script[^>]*>'
+      - '(?i)<\s*(svg|img|iframe|body|details|input)[^>]*\bon(error|load|mouseover|focus|animationstart)\s*='
+      - '(?i)\bjavascript\s*:'
+      - '(?i)\bdocument\.(cookie|location|write)\b'
+      - '(?i)(onerror|onload)\s*=\s*[a-z_$]'
+      - '(?i)<\s*(svg|img|iframe)[^>]*\bsrc\s*=\s*javascript:'
+    description: "Request contains script tags, JavaScript event handlers, or javascript: URL indicators."
+    mitre: [T1059.007]
+
   - id: RECON-001
     name: "Sensitive path reconnaissance"
     category: recon_scanning
@@ -89,6 +104,9 @@ behavioral_rules:
     enabled: true
   server_error_burst:
     id: HTTP-001
+    enabled: true
+  unauthorized_access:
+    id: ACCESS-001/ACCESS-002
     enabled: true
   known_malicious_ip:
     id: IP-001

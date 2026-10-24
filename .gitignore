@@ -28,7 +28,8 @@ results/figures/*.png
 results/metrics/*.csv
 results/metrics/*.json
 results/reports/*.md
-results/logs/*.log
+results/reports/*.json
+results/logs/*
 !results/figures/.gitkeep
 !results/metrics/.gitkeep
 !results/reports/.gitkeep

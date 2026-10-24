@@ -388,7 +388,8 @@ def write_report(
                  "the reported investigation behaviour is therefore reproducible, not an evaluation "
                  "of a hosted language model.")
     lines.append("- MITRE ATT&CK ground truth is project-defined from scenario construction. "
-                 "Reputation-only and volume-only scenarios are excluded from MITRE accuracy.")
+                 "Reputation-only, volume-only and authorization-only scenarios are excluded from "
+                 "MITRE accuracy.")
     lines.append("- All response effects are simulated. No firewall, session store, credential, "
                  "workload or network device is changed.")
     lines.append("- Per-class results on a small synthetic scenario set should not be extrapolated "

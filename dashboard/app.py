@@ -752,6 +752,70 @@ def render_approval_controls(detail: dict[str, Any]) -> None:
         st.caption(f"No approval-gated action is available in status {status}.")
 
 
+def events_page() -> None:
+    page_header(
+        "Live security events",
+        "Normalized web-application events stored by the ingestion pipeline. Log content is untrusted data.",
+    )
+    with st.container(border=True):
+        columns = st.columns([1, 1.2, 1.2, 1.4])
+        limit = columns[0].selectbox("Limit", [50, 100, 250, 500], index=1)
+        event_type = columns[1].text_input("Event type", placeholder="e.g. unauthorized_access")
+        severity = columns[2].selectbox(
+            "Severity", ["ANY", "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"], index=0
+        )
+        source_ip = columns[3].text_input("Source IP", placeholder="203.0.113.10")
+        incident_id = st.text_input("Incident filter", placeholder="INC-0001")
+    params: dict[str, Any] = {"limit": limit}
+    if event_type.strip():
+        params["event_type"] = event_type.strip()
+    if severity != "ANY":
+        params["severity"] = severity
+    if source_ip.strip():
+        params["source_ip"] = source_ip.strip()
+    if incident_id.strip():
+        params["incident_id"] = incident_id.strip()
+    try:
+        payload = api("GET", "/api/events", params=params)
+    except ApiError as exc:
+        st.error(exc.detail)
+        return
+    items = payload.get("items", [])
+    if not items:
+        st.info("No events match the selected filters.")
+        return
+    st.caption(f"Showing {len(items)} event(s). Request content is displayed as stored and is never executed.")
+    st.dataframe(
+        pd.DataFrame(
+            [
+                {
+                    "Time": _fmt_time(item.get("timestamp")),
+                    "Type": item.get("event_type"),
+                    "Severity": item.get("severity"),
+                    "Source IP": item.get("source_ip"),
+                    "Method": item.get("method"),
+                    "Endpoint": item.get("endpoint"),
+                    "Status": item.get("status_code"),
+                    "User": item.get("username"),
+                    "Incident": item.get("incident_id"),
+                    "Dataset": item.get("dataset_label"),
+                }
+                for item in items
+            ]
+        ),
+        width="stretch",
+        hide_index=True,
+    )
+    selected = st.selectbox("Inspect event", [item["id"] for item in items])
+    record = next((item for item in items if item.get("id") == selected), None)
+    if record:
+        st.json(record)
+        st.caption(
+            "Endpoint, user-agent and message fields are untrusted input. Prompt-injection patterns are "
+            "flagged during normalization and never treated as instructions."
+        )
+
+
 def audit_page() -> None:
     page_header(
         "Audit trail",
@@ -836,7 +900,11 @@ def main() -> None:
     with st.sidebar:
         st.markdown("## 🛡️ SOC Console")
         st.caption(f"Signed in as **{user.get('username')}** ({user.get('role')})")
-        page = st.radio("View", ["Overview", "Incidents", "Audit trail"], label_visibility="collapsed")
+        page = st.radio(
+            "View",
+            ["Overview", "Incidents", "Live events", "Audit trail"],
+            label_visibility="collapsed",
+        )
         st.divider()
         st.caption(f"API: `{API_URL}`")
         st.caption("All response actions are simulated. The LLM is advisory only.")
@@ -846,6 +914,8 @@ def main() -> None:
         overview_page()
     elif page == "Incidents":
         incidents_page()
+    elif page == "Live events":
+        events_page()
     else:
         audit_page()
 

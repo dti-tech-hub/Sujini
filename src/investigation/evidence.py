@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.database import repository
 from src.database.models import Alert, Evidence, Incident, SecurityEvent
+from src.detection.normalization import is_auth_endpoint
 from src.detection.rules import evaluate_rules
 from src.investigation.correlation import CorrelationResult, correlate
 from src.utils.helpers import ensure_utc, iso
@@ -61,7 +62,11 @@ class EvidenceAgent:
                 details={"alert_id": alert.id, "rule_id": alert.rule_id, "severity": alert.severity, **alert.details},
             )
 
-        failed = [event for event in events if event.event_type == "failed_login" or event.status_code == 401]
+        failed = [
+            event for event in events
+            if event.event_type == "failed_login"
+            or (event.status_code == 401 and is_auth_endpoint(event.endpoint))
+        ]
         for event in failed[-10:]:
             add(
                 evidence_type="failed_login",
@@ -70,6 +75,24 @@ class EvidenceAgent:
                     f"from {event.source_ip or 'unknown source'} ({event.method or '-'} {event.endpoint or '-'} -> {event.status_code})."
                 ),
                 weight=0.45,
+                event_id=event.id,
+                details={"status_code": event.status_code, "endpoint": event.endpoint},
+            )
+
+        denied = [
+            event for event in events
+            if (event.status_code in {401, 403} or event.event_type in {"unauthorized_access", "forbidden_access"})
+            and not is_auth_endpoint(event.endpoint)
+        ]
+        for event in denied[-10:]:
+            add(
+                evidence_type="access_denied",
+                description=(
+                    f"Access denied at {iso(event.timestamp)} for '{event.username or 'anonymous'}' "
+                    f"from {event.source_ip or 'unknown source'} "
+                    f"({event.method or '-'} {event.endpoint or '-'} -> {event.status_code})."
+                ),
+                weight=0.6,
                 event_id=event.id,
                 details={"status_code": event.status_code, "endpoint": event.endpoint},
             )
@@ -99,7 +122,7 @@ class EvidenceAgent:
         successful = [
             event for event in events
             if event.event_type == "successful_login" or (
-                event.status_code in {200, 302} and "/login" in (event.endpoint or "").lower()
+                event.status_code in {200, 302} and is_auth_endpoint(event.endpoint)
             )
         ]
         for event in successful:

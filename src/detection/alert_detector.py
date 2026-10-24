@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from src.database import repository
 from src.database.models import Alert, SecurityEvent
 from src.detection.anomaly_detector import AnomalyDetector
+from src.detection.normalization import DEFAULT_AUTH_ENDPOINT_TOKENS, is_auth_endpoint
 from src.detection.rules import RuleHit, evaluate_rules
 from src.utils.config import get_config
 from src.utils.helpers import bucket_time, ensure_utc, stable_hash
@@ -28,6 +29,13 @@ class DetectionResult:
     duplicate: bool = False
 
 
+_AUTH_ENDPOINT_TOKENS = DEFAULT_AUTH_ENDPOINT_TOKENS
+_PRIVILEGED_ENDPOINT_TOKENS = (
+    "/admin", "/internal", "/manage", "/management", "/console", "/config",
+    "/settings", "/users", "/user/", "/roles", "/permissions", "/acl", "/api/keys",
+)
+
+
 class AlertDetector:
     def __init__(self, session: Session, *, enable_ml: bool | None = None) -> None:
         self.session = session
@@ -37,8 +45,34 @@ class AlertDetector:
         self.anomaly = AnomalyDetector() if self.enable_ml else None
         self.detection_config = det
         self.duplicate_minutes = int(det.get("duplicate_window_minutes", 60))
+        self.auth_endpoint_tokens = tuple(
+            str(token).lower() for token in det.get("auth_endpoint_tokens", _AUTH_ENDPOINT_TOKENS)
+        )
+        self.privileged_endpoint_tokens = tuple(
+            str(token).lower() for token in det.get("privileged_endpoint_tokens", _PRIVILEGED_ENDPOINT_TOKENS)
+        )
 
     # -- helpers ---------------------------------------------------------
+    def _is_auth_endpoint(self, event: SecurityEvent) -> bool:
+        return is_auth_endpoint(event.endpoint, self.auth_endpoint_tokens)
+
+    def _is_privileged_endpoint(self, event: SecurityEvent) -> bool:
+        path = (event.endpoint or "").lower()
+        if not path:
+            return False
+        return any(token in path for token in self.privileged_endpoint_tokens)
+
+    def _is_failed_auth(self, event: SecurityEvent) -> bool:
+        """Authentication failure only, never a generic authorization failure."""
+        if event.event_type == "failed_login":
+            return True
+        return event.status_code == 401 and self._is_auth_endpoint(event)
+
+    def _is_access_violation(self, event: SecurityEvent) -> bool:
+        """A denied request outside the authentication flow."""
+        denied = event.status_code in {401, 403} or event.event_type in {"unauthorized_access", "forbidden_access"}
+        return denied and not self._is_auth_endpoint(event)
+
     def _dedup(self, rule_id: str, event: SecurityEvent, extra: str = "") -> str:
         bucket = bucket_time(event.timestamp, max(1, self.duplicate_minutes // 6 or 10))
         key = stable_hash(rule_id, event.source_ip, event.username, extra, bucket, length=40)
@@ -104,6 +138,7 @@ class AlertDetector:
 
         self._failed_login_rule(event, result)
         self._account_compromise_rule(event, result)
+        self._access_control_rule(event, result)
         self._request_rate_rule(event, result)
         self._server_error_rule(event, result)
         self._known_malicious_ip_rule(event, result)
@@ -144,12 +179,12 @@ class AlertDetector:
         return [e for e in candidates if since <= ensure_utc(e.timestamp) <= upper and predicate(e)]
 
     def _failed_login_rule(self, event: SecurityEvent, result: DetectionResult) -> None:
-        if event.event_type not in {"failed_login", "unauthorized_access"} and event.status_code != 401:
+        if not self._is_failed_auth(event):
             return
         cfg = self.detection_config
         threshold = int(cfg.get("failed_login_threshold", 5))
         window = int(cfg.get("failed_login_window_minutes", 10))
-        failures = self._event_counts(event, window, lambda e: e.event_type == "failed_login" or e.status_code == 401)
+        failures = self._event_counts(event, window, self._is_failed_auth)
         if len(failures) < threshold:
             return
         alert, created = self._create(
@@ -178,15 +213,13 @@ class AlertDetector:
 
     def _account_compromise_rule(self, event: SecurityEvent, result: DetectionResult) -> None:
         if event.event_type != "successful_login" and not (
-            event.status_code in {200, 302} and "/login" in (event.endpoint or "").lower()
+            event.status_code in {200, 302} and self._is_auth_endpoint(event)
         ):
             return
         cfg = self.detection_config
         minimum = int(cfg.get("account_compromise_min_failures", 3))
         window = int(cfg.get("failed_login_window_minutes", 10))
-        failures = self._event_counts(
-            event, window, lambda e: e.event_type == "failed_login" or e.status_code == 401
-        )
+        failures = self._event_counts(event, window, self._is_failed_auth)
         if len(failures) < minimum:
             return
         alert, created = self._create(
@@ -207,6 +240,72 @@ class AlertDetector:
                 "detection_source": "behavioral_correlation",
             },
             dedup_extra="post-failure-success",
+        )
+        result.alerts.append(alert)
+        if created:
+            result.new_alerts.append(alert)
+
+    def _access_control_rule(self, event: SecurityEvent, result: DetectionResult) -> None:
+        """Detect denied access outside authentication: single privileged hit or a burst."""
+        if not self._is_access_violation(event):
+            return
+        cfg = self.detection_config
+        threshold = int(cfg.get("unauthorized_access_threshold", 3))
+        window = int(cfg.get("unauthorized_access_window_minutes", 10))
+        violations = self._event_counts(event, window, self._is_access_violation)
+        endpoints = sorted({e.endpoint for e in violations if e.endpoint})
+        privileged = self._is_privileged_endpoint(event)
+
+        if privileged:
+            alert, created = self._create(
+                event,
+                alert_type="unauthorized_access",
+                severity="HIGH",
+                title="Denied access to privileged endpoint",
+                description=(
+                    f"Request to privileged endpoint '{event.endpoint}' returned status "
+                    f"{event.status_code or 'denied'} for user '{event.username or 'anonymous'}'. "
+                    "The response indicates the caller lacked authorization; the request was not executed."
+                ),
+                rule_id="ACCESS-002",
+                details={
+                    "endpoint": event.endpoint,
+                    "status_code": event.status_code,
+                    "username": event.username,
+                    "privileged_endpoint": True,
+                    "violation_count": len(violations),
+                    "detection_source": "access_control",
+                },
+                dedup_extra="privileged-endpoint",
+            )
+            result.alerts.append(alert)
+            if created:
+                result.new_alerts.append(alert)
+
+        if len(violations) < threshold:
+            return
+        severity = "HIGH" if any(self._is_privileged_endpoint(e) for e in violations) else "MEDIUM"
+        alert, created = self._create(
+            event,
+            alert_type="unauthorized_access",
+            severity=severity,
+            title="Repeated unauthorized access attempts",
+            description=(
+                f"{len(violations)} denied request(s) from {event.source_ip or 'unknown source'} "
+                f"within {window} minutes, meeting the configured threshold of {threshold}. "
+                f"Targeted endpoints include: {', '.join(endpoints[:8]) or 'unknown'}."
+            ),
+            rule_id="ACCESS-001",
+            details={
+                "violation_count": len(violations),
+                "threshold": threshold,
+                "window_minutes": window,
+                "endpoints": endpoints[:30],
+                "event_ids": [e.id for e in violations][-30:],
+                "detection_source": "behavioral",
+            },
+            dedup_extra=f"threshold-{threshold}",
+            event_id=violations[-1].id,
         )
         result.alerts.append(alert)
         if created:

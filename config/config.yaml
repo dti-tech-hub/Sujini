@@ -40,6 +40,8 @@ detection:
   request_rate_window_minutes: 1
   server_error_threshold: 10
   server_error_window_minutes: 5
+  unauthorized_access_threshold: 3
+  unauthorized_access_window_minutes: 10
   known_malicious_ips:
     - "198.51.100.77"
     - "203.0.113.66"

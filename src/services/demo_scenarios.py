@@ -8,6 +8,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from src.utils.exceptions import ValidationError
+
 
 def _iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).isoformat()
@@ -107,6 +109,110 @@ def brute_force_compromise_scenario(
     }
 
 
+def xss_injection_scenario(
+    *,
+    base_time: datetime | None = None,
+    source_ip: str = "203.0.113.45",
+    username: str = "visitor",
+) -> dict[str, Any]:
+    """Reflected-XSS shaped request followed by normal browsing."""
+    base = (base_time or datetime.now(tz=timezone.utc)).replace(microsecond=0) - timedelta(minutes=5)
+    events = [
+        {
+            "timestamp": _iso(base + timedelta(seconds=1)),
+            "source_ip": source_ip,
+            "destination": "/search?q=%3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E",
+            "method": "GET",
+            "status_code": 200,
+            "username": username,
+            "event_type": "http_request",
+            "message": "Search query rendered in results page",
+            "user_agent": "Mozilla/5.0 (X11; Linux x86_64) DemoBrowser/1.0",
+            "dataset_label": "synthetic_demo_data",
+        },
+        {
+            "timestamp": _iso(base + timedelta(seconds=4)),
+            "source_ip": source_ip,
+            "destination": "/products",
+            "method": "GET",
+            "status_code": 200,
+            "username": username,
+            "event_type": "http_request",
+            "message": "Product listing viewed",
+            "user_agent": "Mozilla/5.0 (X11; Linux x86_64) DemoBrowser/1.0",
+            "dataset_label": "synthetic_demo_data",
+        },
+    ]
+    return {
+        "name": "xss_injection",
+        "description": "Reflected script payload in a search parameter, followed by a normal request.",
+        "data_label": "synthetic_demo_data",
+        "source_ip": source_ip,
+        "username": username,
+        "events": events,
+        "ground_truth": {
+            "classification": "xss",
+            "mitre_techniques": ["T1059.007"],
+            "expected_min_severity": "HIGH",
+        },
+    }
+
+
+def unauthorized_access_scenario(
+    *,
+    base_time: datetime | None = None,
+    source_ip: str = "203.0.113.77",
+    username: str = "contractor",
+) -> dict[str, Any]:
+    """Repeated denied requests against administrative endpoints."""
+    base = (base_time or datetime.now(tz=timezone.utc)).replace(microsecond=0) - timedelta(minutes=5)
+    events = []
+    for index, path in enumerate(("/admin/users", "/admin/settings", "/admin/roles", "/api/admin/audit")):
+        events.append(
+            {
+                "timestamp": _iso(base + timedelta(seconds=index * 2)),
+                "source_ip": source_ip,
+                "destination": path,
+                "method": "GET",
+                "status_code": 403,
+                "username": username,
+                "event_type": "unauthorized_access",
+                "message": "Access denied by authorization policy",
+                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) DemoBrowser/1.0",
+                "dataset_label": "synthetic_demo_data",
+            }
+        )
+    return {
+        "name": "unauthorized_access_attempts",
+        "description": "Repeated 403 responses on administrative endpoints from a non-privileged account.",
+        "data_label": "synthetic_demo_data",
+        "source_ip": source_ip,
+        "username": username,
+        "events": events,
+        "ground_truth": {
+            "classification": "unauthorized_access",
+            "mitre_techniques": [],
+            "expected_min_severity": "HIGH",
+        },
+    }
+
+
+DEMO_SCENARIOS = {
+    "brute_force_account_compromise": brute_force_compromise_scenario,
+    "xss_injection": xss_injection_scenario,
+    "unauthorized_access_attempts": unauthorized_access_scenario,
+}
+
+
+def get_demo_scenario(name: str, **kwargs: Any) -> dict[str, Any]:
+    factory = DEMO_SCENARIOS.get(name)
+    if factory is None:
+        raise ValidationError(
+            f"Unknown scenario '{name}'. Valid scenarios: {', '.join(sorted(DEMO_SCENARIOS))}"
+        )
+    return factory(**kwargs)
+
+
 def benign_traffic_scenario(*, base_time: datetime | None = None) -> dict[str, Any]:
     base = (base_time or datetime.now(tz=timezone.utc)).replace(microsecond=0) - timedelta(minutes=5)
     events = []
@@ -124,4 +230,29 @@ def benign_traffic_scenario(*, base_time: datetime | None = None) -> dict[str, A
                 "dataset_label": "synthetic_demo_data",
             }
         )
-    return {"name": "benign_browsing", "data_label": "synthetic_demo_data", "events": events}
+    return {
+        "name": "benign_browsing",
+        "description": "Normal page views that should not create an incident.",
+        "data_label": "synthetic_demo_data",
+        "events": events,
+        "ground_truth": {
+            "classification": "benign_or_unknown",
+            "mitre_techniques": [],
+            "expected_min_severity": "INFO",
+        },
+    }
+
+
+DEMO_SCENARIOS["benign_browsing"] = benign_traffic_scenario
+
+DEMO_SCENARIO_DESCRIPTIONS = {
+    "brute_force_account_compromise": (
+        "Repeated failed logins, a successful login, an SQL-injection-shaped admin request, "
+        "and prompt-injection text."
+    ),
+    "xss_injection": "Reflected script payload in a search parameter followed by normal browsing.",
+    "unauthorized_access_attempts": (
+        "Repeated HTTP 403 responses on administrative endpoints from a non-privileged account."
+    ),
+    "benign_browsing": "Normal page views that should not create an incident.",
+}

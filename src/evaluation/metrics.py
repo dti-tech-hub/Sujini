@@ -206,7 +206,10 @@ def mitre_metrics(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
         "micro_recall": round(recall, 4),
         "micro_f1": round(f1, 4),
         "exact_set_match_rate": round(exact / len(eligible), 4) if eligible else 0.0,
-        "note": "Ground truth is project-defined from scenario construction; reputation-only and volume-only scenarios are excluded.",
+        "note": (
+            "Ground truth is project-defined from scenario construction; reputation-only, "
+            "volume-only and authorization-only scenarios are excluded."
+        ),
     }
 
 

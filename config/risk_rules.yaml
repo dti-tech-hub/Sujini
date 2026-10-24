@@ -24,7 +24,9 @@ impact_weights:
   account_compromise: 1.00
   command_injection: 0.95
   sql_injection: 0.90
+  xss: 0.80
   path_traversal: 0.75
+  unauthorized_access: 0.70
   brute_force: 0.65
   malicious_ip: 0.60
   abnormal_traffic: 0.50

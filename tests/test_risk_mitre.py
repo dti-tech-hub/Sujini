@@ -91,6 +91,32 @@ def test_command_injection_maps_execution_and_initial_access():
     assert all(item.mapping_status == "confirmed" for item in result.techniques)
 
 
+def test_xss_maps_javascript_subtechnique_as_candidate():
+    mapper = MitreMapper()
+    result = mapper.map(
+        classification="xss",
+        alert_types=["xss"],
+        confidence=0.86,
+        alerts=[],
+        event_count=1,
+    )
+    assert [item.technique_id for item in result.techniques] == ["T1059.007"]
+    assert result.techniques[0].mapping_status == "candidate"
+    assert result.techniques[0].confidence < 0.75
+
+
+def test_authorization_failure_alone_has_no_defensible_mapping():
+    mapper = MitreMapper()
+    result = mapper.map(
+        classification="unauthorized_access",
+        alert_types=["unauthorized_access"],
+        confidence=0.75,
+        alerts=[],
+        event_count=4,
+    )
+    assert result.techniques == []
+
+
 def test_reputation_only_incident_has_no_defensible_mapping():
     mapper = MitreMapper()
     result = mapper.map(

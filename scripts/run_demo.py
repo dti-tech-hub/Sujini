@@ -40,6 +40,12 @@ def main() -> int:
     parser.add_argument("--database", default=str(DATA_DIR / "demo.db"))
     parser.add_argument("--keep-db", action="store_true", help="Do not delete the demo database first.")
     parser.add_argument("--password", default=None, help="Optional demo admin password (min 12 chars).")
+    parser.add_argument(
+        "--scenario",
+        default="brute_force_account_compromise",
+        choices=["brute_force_account_compromise", "xss_injection", "unauthorized_access_attempts"],
+        help="Synthetic demo scenario to run.",
+    )
     args = parser.parse_args()
 
     database_path = Path(args.database)
@@ -88,7 +94,10 @@ def main() -> int:
         token = login.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
-        response = client.post("/api/demo/scenario?auto_investigate=true", headers=headers)
+        response = client.post(
+            f"/api/demo/scenario?auto_investigate=true&scenario_name={args.scenario}",
+            headers=headers,
+        )
         if response.status_code != 200:
             raise SystemExit(f"Demo scenario failed ({response.status_code}): {response.text[:1000]}")
         demo = response.json()

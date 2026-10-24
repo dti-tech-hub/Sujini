@@ -84,6 +84,7 @@ def test_success_after_failures_creates_account_compromise(service):
     ("destination", "method", "request_body", "expected"),
     [
         ("/products?q=1%27%20UNION%20SELECT%20password%20FROM%20users", "GET", None, "sql_injection"),
+        ("/search?q=%3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E", "GET", None, "xss"),
         ("/api/ping", "POST", "ip=127.0.0.1; whoami", "command_injection"),
         ("/download?file=../../../../etc/passwd", "GET", None, "path_traversal"),
         ("/.env", "GET", None, "recon_scanning"),
@@ -104,6 +105,56 @@ def test_signature_rules(service, destination, method, request_body, expected):
     )
     batch = service.ingest_batch([payload], enable_ml=False)
     assert expected in _alert_types(batch)
+
+
+def test_denied_admin_request_creates_unauthorized_access_alert(service):
+    payload = _event(
+        0,
+        source_ip="10.20.30.110",
+        destination="/admin/users",
+        method="GET",
+        status_code=403,
+        event_type="http_request",
+        message="access denied",
+    )
+    batch = service.ingest_batch([payload], enable_ml=False)
+    types = _alert_types(batch)
+    assert "unauthorized_access" in types
+    assert "brute_force" not in types
+    assert len(batch["incidents"]) == 1
+    detail = service.get_incident_detail(batch["incidents"][0])
+    assert detail["incident"]["attack_category"] == "unauthorized_access"
+    assert any(alert["rule_id"] == "ACCESS-002" for alert in detail["alerts"])
+
+
+def test_repeated_api_denials_are_access_control_not_brute_force(service):
+    events = [
+        _event(index * 2, source_ip="10.20.30.120", destination=f"/api/orders/{index}",
+               method="GET", status_code=401, event_type="http_request",
+               message="authentication required", username="")
+        for index in range(3)
+    ]
+    batch = service.ingest_batch(events, enable_ml=False)
+    types = _alert_types(batch)
+    assert "unauthorized_access" in types
+    assert "brute_force" not in types
+
+
+def test_api_denials_do_not_inflate_failed_login_threshold(service):
+    events = [
+        _event(index * 2, source_ip="10.20.30.130", username="alice")
+        for index in range(4)
+    ]
+    events.extend(
+        _event(20 + index * 2, source_ip="10.20.30.130", destination=f"/api/orders/{index}",
+               method="GET", status_code=401, event_type="http_request",
+               message="authentication required", username="")
+        for index in range(4)
+    )
+    batch = service.ingest_batch(events, enable_ml=False)
+    types = _alert_types(batch)
+    assert "brute_force" not in types
+    assert "unauthorized_access" in types
 
 
 def test_known_malicious_watchlist_ip_is_labelled_demo_data(service):

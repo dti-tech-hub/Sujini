@@ -103,6 +103,16 @@ def test_admin_demo_and_security_headers(api_client, users):
     body = response.json()
     assert body["data_label"] == "synthetic_demo_data"
     assert body["batch"]["incidents"]
+    scenarios = client.get("/api/demo/scenarios", headers=auth_headers(token))
+    assert scenarios.status_code == 200
+    names = {item["name"] for item in scenarios.json()["scenarios"]}
+    assert {"benign_browsing", "xss_injection", "unauthorized_access_attempts"} <= names
+    benign = client.post(
+        "/api/demo/scenario?scenario_name=benign_browsing",
+        headers=auth_headers(token),
+    )
+    assert benign.status_code == 200
+    assert benign.json()["ground_truth"]["classification"] == "benign_or_unknown"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Cache-Control"] == "no-store"
